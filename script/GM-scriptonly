@@ -1,0 +1,192 @@
+#!/system/bin/sh
+write() {
+  # Check the file if existing to avoid error writes
+  if [ -f "$1" ]; then
+    # Make the file writable if it wasn't
+    chmod +w "$1" 2>/dev/null
+    # Set the parameter
+    echo "$2" > "$1"
+  fi
+}
+
+if [ -e /sys/block/mmcblk0/queue/scheduler ]; then
+ io_scheduler=/sys/block/mmcblk0/queue/scheduler
+fi
+if [ -e /sys/devices/system/cpu/possible ]; then
+ cpu=`cat /sys/devices/system/cpu/possible`
+fi
+
+# Disable Log
+stop log
+stop logd
+stop perfd
+stop stats
+stop statsd
+stop statscompanion
+rm -f /data/*.log
+rm -rf /data/log
+
+
+# ------------------------
+# Active Interactive & Online all cpu cores
+if [ $cpu == 0-3 ]; then
+write "/sys/devices/system/cpu/cpu0/online" 1
+write "/sys/devices/system/cpu/cpu1/online" 1
+write "/sys/devices/system/cpu/cpu2/online" 1
+write "/sys/devices/system/cpu/cpu3/online" 1
+else
+write "/sys/devices/system/cpu/cpu0/online" 1
+write "/sys/devices/system/cpu/cpu1/online" 1
+write "/sys/devices/system/cpu/cpu2/online" 1
+write "/sys/devices/system/cpu/cpu3/online" 1
+write "/sys/devices/system/cpu/cpu4/online" 1
+write "/sys/devices/system/cpu/cpu5/online" 1
+write "/sys/devices/system/cpu/cpu6/online" 1
+write "/sys/devices/system/cpu/cpu7/online" 1
+fi
+
+
+# Enhanced Deadline I/0 Scheduler 
+if grep 'deadline' $io_scheduler; then
+write "/sys/block/mmcblk0/queue/scheduler" deadline
+write "/sys/block/mmcblk1/queue/scheduler" deadline
+write "/sys/block/mmcblk0/queue/read_ahead_kb" 960
+write "/sys/block/mmcblk0/queue/iosched/read_expire" 100
+write "/sys/block/mmcblk0/queue/iosched/write_expire" 90
+write "/sys/block/mmcblk0/queue/iosched/writes_starved" 7
+write "/sys/block/mmcblk0/queue/iosched/fifo_batch" 10
+write "/sys/block/mmcblk0/queue/rq_affinity" 1
+write "/sys/block/mmcblk0/queue/nr_request" 512
+else
+write "/sys/block/mmcblk0/queue/scheduler" row
+write "/sys/block/mmcblk1/queue/scheduler" row
+write "/sys/block/mmcblk0/queue/read_ahead_kb" 720
+write "/sys/block/mmcblk0/queue/rq_affinity" 1
+write "/sys/block/mmcblk0/queue/nr_request" 810
+fi
+
+#------------------------------------------
+# Disable Useless Function (like log,debug,gpulog,etc)
+
+write "/sys/kernel/debug/kgsl/kgsl-3d0/log_level_cmd" 0
+write "/sys/kernel/debug/kgsl/kgsl-3d0/log_level_ctxt" 0
+write "/sys/kernel/debug/kgsl/kgsl-3d0/log_level_drv" 0
+write "/sys/kernel/debug/kgsl/kgsl-3d0/log_level_mem" 0
+write "/sys/kernel/debug/kgsl/kgsl-3d0/log_level_pwr" 0
+
+write "/sys/module/bluetooth/parameters/disable_ertm" Y
+write "/sys/module/bluetooth/parameters/disable_esco" Y
+write "/sys/module/dwc3/parameters/ep_addr_rxdbg_mask" 0
+write "/sys/module/dwc3/parameters/ep_addr_txdbg_mask" 0
+write "/sys/module/dwc3_msm/parameters/disable_host_mode" 0
+write "/sys/module/hid_apple/parameters/fnmode" 0
+write "/sys/module/hid/parameters/ignore_special_drivers" 0
+write "/sys/module/hid_magicmouse/parameters/emulate_3button" N
+write "/sys/module/hid_magicmouse/parameters/emulate_scroll_wheel" N
+write "/sys/module/workqueue/parameters/power_efficient" N
+write "/sys/module/sync/parameters/fsync_enabled" N
+write "/sys/module/binder/parameters/debug_mask" 0
+write "/sys/module/debug/parameters/enable_event_log" 0
+write "/sys/module/glink/parameters/debug_mask" 0 
+write "/sys/module/ip6_tunnel/parameters/log_ecn_error" N
+write "/sys/module/subsystem_restart/parameters/enable_ramdumps" 0
+write "/sys/module/lowmemorykiller/parameters/debug_level" 0
+write "sys/module/msm_show_resume_irq/parameters/debug_mask" 0
+write "/sys/module/msm_smd_pkt/parameters/debug_mask" 0
+write "/sys/module/sit/parameters/log_ecn_error" N
+write "/sys/module/smp2p/parameters/debug_mask" 0
+write "/sys/module/usb_bam/parameters/enable_event_log" 0
+write "/sys/module/printk/parameters/console_suspend" Y
+write "/sys/module/printk/parameters/cpu" N
+write "/sys/kernel/printk_mode/printk_mode" 0
+write "/sys/module/printk/parameters/ignore_loglevel" Y
+write "/sys/module/printk/parameters/pid" N
+write "/sys/module/printk/parameters/time" N
+write "/sys/module/service_locator/parameters/enable" 0
+write "/sys/module/subsystem_restart/parameters/disable_restart_work" 1
+
+
+# Enhanced Touchscreen for supported kernels
+if [ -e /sys/class/touch/switch/set_touchscreen ]; then
+  echo 7035 > /sys/class/touch/switch/set_touchscreen
+  echo 8002 > /sys/class/touch/switch/set_touchscreen
+  echo 11000 > /sys/class/touch/switch/set_touchscreen
+  echo 13060 > /sys/class/touch/switch/set_touchscreen
+  echo 14005 > /sys/class/touch/switch/set_touchscreen
+fi
+if [ -e /sys/devices/virtual/sec/sec_touchscreen/tsp_threshold ]; then
+  echo 40 > /sys/devices/virtual/sec/sec_touchscreen/tsp_threshold
+fi
+if [ -e /sys/devices/virtual/sec/sec_touchkey/touchkey_brightness ]; then
+  echo 2700 > /sys/devices/virtual/sec/sec_touchkey/touchkey_brightness
+fi
+if [ -e /sys/devices/platform/kgsl/msm_kgsl/kgsl-3d0/io_fraction ]; then
+  echo 60 >> /sys/devices/platform/kgsl/msm_kgsl/kgsl-3d0/io_fraction
+fi
+
+# Enhanced DB and DBR
+write "/proc/sys/vm/dirty_ratio" 20
+write "/proc/sys/vm/dirty_background_ratio" 70
+
+# Enhanced GPU
+write "/sys/class/kgsl/kgsl-3d0/force_clk_on" 1
+write "/sys/class/kgsl/kgsl-3d0/thermal_pwrlevel" 0
+write "/sys/class/kgsl/kgsl-3d0/active_pwrlevel" 0
+write "/sys/class/kgsl/kgsl-3d0/force_bus_on" 1
+write "/sys/class/kgsl/kgsl-3d0/force_no_nap" 0
+write "/sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost" 3
+write "/sys/class/kgsl/kgsl-3d0/force_rail_on" 1
+write "/sys/class/kgsl/kgsl-3d0/bus_split" 1
+write "/sys/class/kgsl/kgsl-3d0/throttling" 0
+write "/sys/class/kgsl/kgsl-3d0/devfreq/max_freq" $UINT_MAX
+write "/sys/class/kgsl/kgsl-3d0/devfreq/polling_interval" 2
+write "/sys/class/kgsl/kgsl-3d0/idle_timer" 20000
+write "/sys/class/kgsl/kgsl-3d0/max_pwrlevel" 0
+write "/sys/class/kgsl/kgsl-3d0/min_pwrlevel" 0
+
+# Disable Adreno Idler
+write "/sys/module/adreno_idler/parameters/adreno_idler_active" N
+
+# Enhanced Touch
+if [ -d /sys/class/sec/sec_touchkey ]; then
+write "/sys/class/sec/sec_touchkey/touch_sensitivity" 100
+write "/sys/class/sec/sec_touchkey/glove_mode" 1
+write "/sys/class/sec/sec_touchkey/boost_level" 5
+
+# Enhanced LMK and Enabled Fast Run
+chwon root /sys/module/lowmemorykiller/parameters/minfree
+write "/sys/module/lowmemorykiller/parameters/minfree" "2048,4096,8192,16384,24576,32768" 
+write "/sys/module/lowmemorykiller/parameters/lmk_fast_run" "1"
+
+# Enhanced Entropy for smoothles ui and scrolling
+write "/proc/sys/kernel/random/read_wakeup_threshold" 1024
+write "/proc/sys/kernel/random/write_wakeup_threshold" 1024
+
+# Disable Core Control
+for corectl in /sys/devices/system/cpu/cpu*/core_ctl
+do
+if [[ -e "${corectl}/enable" ]]
+then
+write "${corectl}/enable" "0"
+
+elif [[ -e "${corectl}/disable" ]]
+then
+write "${corectl}/disable" "1"
+fi
+done
+
+# Enabled Touchboost for better touch
+if [ -e /sys/module/msm_performance/parameters/touchboost ];
+then
+write "/sys/module/msm_performance/parameters/touchboost" "1"
+elif [ -e /sys/power/pnpmgr/touch_boost ]
+then
+write "/sys/power/pnpmgr/touch_boost" "1"
+fi
+
+# Enable Fast Charging USB 3.1
+if [ -e "/sys/kernel/fast_charge/force_fast_charge" ];
+then
+write "/sys/kernel/fast_charge/force_fast_charge" "1"
+fi
+
